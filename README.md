@@ -1,0 +1,2 @@
+# Real-Time-OCR-System-for-Video-Based-Text-Recognition-in-Traffic-and-Surveillance
+This project develops a real-time OCR system to extract and recognize text from traffic and surveillance video feeds. It processes live video frames to detect and read text such as license plates and road signboards while handling challenges like motion blur, low resolution, varying lighting, and complex backgrounds.
