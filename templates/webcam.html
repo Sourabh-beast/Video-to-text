@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Webcam — Real-Time OCR System</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <a href="/" class="nav-brand">
+            <div class="nav-logo">OCR</div>
+            <span class="nav-name">Traffic OCR System</span>
+        </a>
+        <div class="nav-links">
+            <a href="/" class="nav-link">Home</a>
+            <a href="/webcam" class="nav-link active">Webcam</a>
+            <a href="/upload" class="nav-link">Upload Video</a>
+        </div>
+    </nav>
+
+    <main class="app-main">
+        <div class="page-header">
+            <h1 class="page-title">Live Webcam — Text Recognition</h1>
+            <p class="page-desc">Start your camera, draw a rectangle on any text to detect and read it</p>
+        </div>
+
+        <div class="workspace">
+            <div class="video-panel">
+                <div class="panel-bar">
+                    <div class="panel-status">
+                        <span class="status-dot" id="statusDot"></span>
+                        <span id="statusText">Camera Off</span>
+                    </div>
+                    <div class="panel-buttons">
+                        <button class="btn btn-start" id="btnStart">▶ Start Camera</button>
+                        <button class="btn btn-stop" id="btnStop" style="display:none;">■ Stop</button>
+                    </div>
+                </div>
+                <div class="video-area" id="videoArea">
+                    <div class="placeholder" id="placeholder">
+                        <div class="placeholder-icon">📷</div>
+                        <p>Click "Start Camera" to begin</p>
+                    </div>
+                    <video id="camVideo" class="video-player" style="display:none;" autoplay playsinline muted></video>
+                    <div class="select-box" id="selectBox"></div>
+                </div>
+                <div class="panel-hint">🖱️ Click & drag to select text region — zoom clears after 5s, text after 10s</div>
+            </div>
+
+            <div class="results-panel">
+                <div class="result-box">
+                    <div class="result-title">🔍 Zoomed Region</div>
+                    <div class="zoom-area">
+                        <p class="empty-msg" id="zoomEmpty">Draw a rectangle to zoom</p>
+                        <img id="zoomImg" class="zoomed-img" style="display:none;" alt="Zoomed">
+                    </div>
+                </div>
+                <div class="result-box">
+                    <div class="result-title">📝 Detected Text</div>
+                    <div class="text-area">
+                        <p class="empty-msg" id="textEmpty">OCR results appear here</p>
+                        <pre class="ocr-result" id="ocrResult" style="display:none;"></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const btnStart = document.getElementById('btnStart');
+        const btnStop = document.getElementById('btnStop');
+        const camVideo = document.getElementById('camVideo');
+        const placeholder = document.getElementById('placeholder');
+        const videoArea = document.getElementById('videoArea');
+        const selectBox = document.getElementById('selectBox');
+        const zoomImg = document.getElementById('zoomImg');
+        const ocrResult = document.getElementById('ocrResult');
+        const zoomEmpty = document.getElementById('zoomEmpty');
+        const textEmpty = document.getElementById('textEmpty');
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+
+        let stream = null, camReady = false, drawing = false, sx, sy;
+        let zoomTimer = null, textTimer = null;
+
+        // Start camera
+        btnStart.addEventListener('click', async () => {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                camVideo.srcObject = stream;
+                camVideo.style.display = 'block';
+                placeholder.style.display = 'none';
+                btnStart.style.display = 'none';
+                btnStop.style.display = 'inline-flex';
+                statusDot.classList.add('on');
+                statusText.textContent = 'Camera Active';
+                camReady = true;
+            } catch (err) {
+                alert('Camera access denied: ' + err.message);
+            }
+        });
+
+        // Stop camera
+        btnStop.addEventListener('click', () => {
+            if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+            camVideo.srcObject = null;
+            camVideo.style.display = 'none';
+            placeholder.style.display = 'flex';
+            btnStop.style.display = 'none';
+            btnStart.style.display = 'inline-flex';
+            statusDot.classList.remove('on');
+            statusText.textContent = 'Camera Off';
+            camReady = false;
+        });
+
+        // Mouse selection
+        videoArea.addEventListener('mousedown', e => {
+            if (!camReady) return;
+            const r = videoArea.getBoundingClientRect();
+            sx = e.clientX - r.left; sy = e.clientY - r.top;
+            drawing = true;
+            selectBox.style.display = 'block';
+            selectBox.style.left = sx + 'px'; selectBox.style.top = sy + 'px';
+            selectBox.style.width = '0'; selectBox.style.height = '0';
+        });
+
+        videoArea.addEventListener('mousemove', e => {
+            if (!drawing) return;
+            const r = videoArea.getBoundingClientRect();
+            const cx = e.clientX - r.left, cy = e.clientY - r.top;
+            selectBox.style.left = Math.min(sx, cx) + 'px';
+            selectBox.style.top = Math.min(sy, cy) + 'px';
+            selectBox.style.width = Math.abs(cx - sx) + 'px';
+            selectBox.style.height = Math.abs(cy - sy) + 'px';
+        });
+
+        videoArea.addEventListener('mouseup', async e => {
+            if (!drawing) return;
+            drawing = false;
+            const r = videoArea.getBoundingClientRect();
+            const ex = e.clientX - r.left, ey = e.clientY - r.top;
+            const x1 = Math.min(sx, ex), y1 = Math.min(sy, ey);
+            const x2 = Math.max(sx, ex), y2 = Math.max(sy, ey);
+            if ((x2 - x1) < 10 || (y2 - y1) < 10) { selectBox.style.display = 'none'; return; }
+
+            // Hide selection box after drawing
+            setTimeout(() => { selectBox.style.display = 'none'; }, 500);
+
+            const canvas = document.createElement('canvas');
+            canvas.width = camVideo.videoWidth;
+            canvas.height = camVideo.videoHeight;
+            canvas.getContext('2d').drawImage(camVideo, 0, 0, canvas.width, canvas.height);
+            const scX = canvas.width / videoArea.offsetWidth;
+            const scY = canvas.height / videoArea.offsetHeight;
+
+            ocrResult.textContent = 'Processing...';
+            ocrResult.style.display = 'block'; textEmpty.style.display = 'none';
+
+            canvas.toBlob(async blob => {
+                const fd = new FormData();
+                fd.append('frame', blob, 'frame.jpg');
+                fd.append('x1', Math.round(x1 * scX));
+                fd.append('y1', Math.round(y1 * scY));
+                fd.append('x2', Math.round(x2 * scX));
+                fd.append('y2', Math.round(y2 * scY));
+                try {
+                    const res = await fetch('/ocr_region', { method: 'POST', body: fd });
+                    const data = await res.json();
+
+                    // Show zoomed image — auto-clear after 5 seconds
+                    if (data.zoomed_image) {
+                        zoomImg.src = data.zoomed_image;
+                        zoomImg.style.display = 'block'; zoomEmpty.style.display = 'none';
+                        if (zoomTimer) clearTimeout(zoomTimer);
+                        zoomTimer = setTimeout(() => {
+                            zoomImg.style.display = 'none';
+                            zoomEmpty.style.display = 'block';
+                        }, 5000);
+                    }
+
+                    // Show OCR text — auto-clear after 10 seconds
+                    ocrResult.textContent = data.text || 'No text detected';
+                    if (textTimer) clearTimeout(textTimer);
+                    textTimer = setTimeout(() => {
+                        ocrResult.style.display = 'none';
+                        textEmpty.style.display = 'block';
+                    }, 10000);
+                } catch (err) {
+                    ocrResult.textContent = 'Error: ' + err.message;
+                }
+            }, 'image/jpeg', 0.9);
+        });
+    </script>
+</body>
+</html>

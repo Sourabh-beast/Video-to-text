@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Video — Real-Time OCR System</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <a href="/" class="nav-brand">
+            <div class="nav-logo">OCR</div>
+            <span class="nav-name">Traffic OCR System</span>
+        </a>
+        <div class="nav-links">
+            <a href="/" class="nav-link">Home</a>
+            <a href="/webcam" class="nav-link">Webcam</a>
+            <a href="/upload" class="nav-link active">Upload Video</a>
+        </div>
+    </nav>
+
+    <main class="app-main">
+        <div class="page-header">
+            <h1 class="page-title">Upload Video — Text Recognition</h1>
+            <p class="page-desc">Upload traffic or surveillance footage, draw a rectangle on text to detect and read it</p>
+        </div>
+
+        <div class="workspace">
+            <div class="video-panel">
+                <div class="panel-bar">
+                    <div class="panel-status">
+                        <span class="status-dot" id="statusDot"></span>
+                        <span id="statusText">No Video Loaded</span>
+                    </div>
+                    <div class="panel-buttons">
+                        <label class="btn btn-start" for="fileInput" id="btnUpload">↑ Choose Video</label>
+                        <input type="file" id="fileInput" accept="video/*" style="display:none;">
+                        <button class="btn btn-stop" id="btnClear" style="display:none;">✕ Clear</button>
+                    </div>
+                </div>
+                <div class="video-area" id="videoArea">
+                    <div class="upload-zone" id="uploadZone">
+                        <div class="upload-zone-content">
+                            <div class="placeholder-icon">📁</div>
+                            <p class="upload-main-text">Drag & Drop video here</p>
+                            <p class="upload-sub-text">or click "Choose Video" above</p>
+                            <span class="upload-formats">MP4, AVI, MOV, MKV</span>
+                        </div>
+                    </div>
+                    <div class="upload-progress" id="progressBox" style="display:none;">
+                        <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
+                        <p id="progressText">Uploading...</p>
+                    </div>
+                    <video id="videoPlayer" class="video-player" style="display:none;" muted loop></video>
+                    <div class="select-box" id="selectBox"></div>
+                </div>
+                <div class="panel-hint" id="hint" style="display:none;">🖱️ Click & drag to select text region — zoom clears after 5s, text after 10s</div>
+            </div>
+
+            <div class="results-panel">
+                <div class="result-box">
+                    <div class="result-title">🔍 Zoomed Region</div>
+                    <div class="zoom-area">
+                        <p class="empty-msg" id="zoomEmpty">Draw a rectangle to zoom</p>
+                        <img id="zoomImg" class="zoomed-img" style="display:none;" alt="Zoomed">
+                    </div>
+                </div>
+                <div class="result-box">
+                    <div class="result-title">📝 Detected Text</div>
+                    <div class="text-area">
+                        <p class="empty-msg" id="textEmpty">OCR results appear here</p>
+                        <pre class="ocr-result" id="ocrResult" style="display:none;"></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const videoPlayer = document.getElementById('videoPlayer');
+        const uploadZone = document.getElementById('uploadZone');
+        const progressBox = document.getElementById('progressBox');
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        const videoArea = document.getElementById('videoArea');
+        const selectBox = document.getElementById('selectBox');
+        const zoomImg = document.getElementById('zoomImg');
+        const ocrResult = document.getElementById('ocrResult');
+        const zoomEmpty = document.getElementById('zoomEmpty');
+        const textEmpty = document.getElementById('textEmpty');
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const btnClear = document.getElementById('btnClear');
+        const btnUpload = document.getElementById('btnUpload');
+        const hint = document.getElementById('hint');
+
+        let videoReady = false, drawing = false, sx, sy;
+        let zoomTimer = null, textTimer = null;
+
+        // Drag & drop
+        uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-hover'); });
+        uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-hover'));
+        uploadZone.addEventListener('drop', e => {
+            e.preventDefault(); uploadZone.classList.remove('drag-hover');
+            if (e.dataTransfer.files.length > 0) doUpload(e.dataTransfer.files[0]);
+        });
+
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length > 0) doUpload(fileInput.files[0]);
+        });
+
+        function doUpload(file) {
+            uploadZone.style.display = 'none';
+            progressBox.style.display = 'flex';
+            progressBar.style.width = '0%';
+            progressBar.classList.remove('error');
+            progressText.textContent = 'Uploading ' + file.name + '...';
+
+            const xhr = new XMLHttpRequest();
+            const fd = new FormData();
+            fd.append('video', file);
+
+            xhr.upload.addEventListener('progress', e => {
+                if (e.lengthComputable) {
+                    const pct = Math.round((e.loaded / e.total) * 100);
+                    progressBar.style.width = pct + '%';
+                    progressText.textContent = 'Uploading... ' + pct + '%';
+                }
+            });
+
+            xhr.addEventListener('load', () => {
+                try {
+                    const data = JSON.parse(xhr.responseText);
+                    if (xhr.status === 200 && data.status === 'uploaded') {
+                        progressBar.style.width = '100%';
+                        progressText.textContent = 'Done! Loading video...';
+                        setTimeout(() => {
+                            progressBox.style.display = 'none';
+                            videoPlayer.src = '/uploads/' + encodeURIComponent(data.filename);
+                            videoPlayer.style.display = 'block';
+                            videoPlayer.play();
+                            statusDot.classList.add('on');
+                            statusText.textContent = 'Playing: ' + file.name;
+                            btnClear.style.display = 'inline-flex';
+                            btnUpload.style.display = 'none';
+                            hint.style.display = 'flex';
+                            videoReady = true;
+                        }, 400);
+                    } else {
+                        progressText.textContent = 'Error: ' + (data.error || 'Upload failed');
+                        progressBar.classList.add('error'); progressBar.style.width = '100%';
+                    }
+                } catch (e) {
+                    progressText.textContent = 'Error parsing response';
+                    progressBar.classList.add('error');
+                }
+            });
+
+            xhr.addEventListener('error', () => {
+                progressText.textContent = 'Network error';
+                progressBar.classList.add('error');
+            });
+
+            xhr.open('POST', '/upload_video');
+            xhr.timeout = 300000;
+            xhr.send(fd);
+        }
+
+        // Clear
+        btnClear.addEventListener('click', () => {
+            videoPlayer.pause(); videoPlayer.src = '';
+            videoPlayer.style.display = 'none';
+            uploadZone.style.display = 'flex';
+            statusDot.classList.remove('on');
+            statusText.textContent = 'No Video Loaded';
+            btnClear.style.display = 'none';
+            btnUpload.style.display = 'inline-flex';
+            hint.style.display = 'none';
+            selectBox.style.display = 'none';
+            videoReady = false;
+            zoomImg.style.display = 'none'; zoomEmpty.style.display = 'block';
+            ocrResult.style.display = 'none'; textEmpty.style.display = 'block';
+        });
+
+        // Mouse selection
+        videoArea.addEventListener('mousedown', e => {
+            if (!videoReady) return;
+            const r = videoArea.getBoundingClientRect();
+            sx = e.clientX - r.left; sy = e.clientY - r.top;
+            drawing = true;
+            selectBox.style.display = 'block';
+            selectBox.style.left = sx + 'px'; selectBox.style.top = sy + 'px';
+            selectBox.style.width = '0'; selectBox.style.height = '0';
+        });
+
+        videoArea.addEventListener('mousemove', e => {
+            if (!drawing) return;
+            const r = videoArea.getBoundingClientRect();
+            const cx = e.clientX - r.left, cy = e.clientY - r.top;
+            selectBox.style.left = Math.min(sx, cx) + 'px';
+            selectBox.style.top = Math.min(sy, cy) + 'px';
+            selectBox.style.width = Math.abs(cx - sx) + 'px';
+            selectBox.style.height = Math.abs(cy - sy) + 'px';
+        });
+
+        videoArea.addEventListener('mouseup', async e => {
+            if (!drawing) return;
+            drawing = false;
+            const r = videoArea.getBoundingClientRect();
+            const ex = e.clientX - r.left, ey = e.clientY - r.top;
+            const x1 = Math.min(sx, ex), y1 = Math.min(sy, ey);
+            const x2 = Math.max(sx, ex), y2 = Math.max(sy, ey);
+            if ((x2 - x1) < 10 || (y2 - y1) < 10) { selectBox.style.display = 'none'; return; }
+
+            setTimeout(() => { selectBox.style.display = 'none'; }, 500);
+
+            const canvas = document.createElement('canvas');
+            canvas.width = videoPlayer.videoWidth;
+            canvas.height = videoPlayer.videoHeight;
+            canvas.getContext('2d').drawImage(videoPlayer, 0, 0, canvas.width, canvas.height);
+            const scX = canvas.width / videoArea.offsetWidth;
+            const scY = canvas.height / videoArea.offsetHeight;
+
+            ocrResult.textContent = 'Processing...';
+            ocrResult.style.display = 'block'; textEmpty.style.display = 'none';
+
+            canvas.toBlob(async blob => {
+                const fd = new FormData();
+                fd.append('frame', blob, 'frame.jpg');
+                fd.append('x1', Math.round(x1 * scX));
+                fd.append('y1', Math.round(y1 * scY));
+                fd.append('x2', Math.round(x2 * scX));
+                fd.append('y2', Math.round(y2 * scY));
+                try {
+                    const res = await fetch('/ocr_region', { method: 'POST', body: fd });
+                    const data = await res.json();
+
+                    // Show zoomed image — auto-clear after 5 seconds
+                    if (data.zoomed_image) {
+                        zoomImg.src = data.zoomed_image;
+                        zoomImg.style.display = 'block'; zoomEmpty.style.display = 'none';
+                        if (zoomTimer) clearTimeout(zoomTimer);
+                        zoomTimer = setTimeout(() => {
+                            zoomImg.style.display = 'none';
+                            zoomEmpty.style.display = 'block';
+                        }, 5000);
+                    }
+
+                    // Show OCR text — auto-clear after 10 seconds
+                    ocrResult.textContent = data.text || 'No text detected';
+                    if (textTimer) clearTimeout(textTimer);
+                    textTimer = setTimeout(() => {
+                        ocrResult.style.display = 'none';
+                        textEmpty.style.display = 'block';
+                    }, 10000);
+                } catch (err) {
+                    ocrResult.textContent = 'Error: ' + err.message;
+                }
+            }, 'image/jpeg', 0.9);
+        });
+    </script>
+</body>
+</html>
