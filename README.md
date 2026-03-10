@@ -4,11 +4,12 @@
 
 This project develops a **real-time OCR (Optical Character Recognition) system** that extracts and recognizes text from traffic and surveillance video feeds. It processes live video frames to detect and read text such as:
 
-- 🚗 **Vehicle license plates**
+- 🚗 **Vehicle license plates** (e.g., MH12AB1234)
+- 🚌 **Bus route numbers** (e.g., 567)
 - 🛣️ **Road signboards**
 - 📹 **Text appearing in CCTV/surveillance recordings**
 
-The system handles real-world challenges like motion blur, low resolution, varying lighting conditions, and complex backgrounds.
+The system handles real-world challenges like motion blur, low resolution, varying lighting conditions, and complex backgrounds using **deep learning-based OCR (EasyOCR)**.
 
 ---
 
