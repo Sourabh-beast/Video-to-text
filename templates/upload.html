@@ -4,12 +4,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Upload OCR | Traffic OCR System</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <title>Video Deck | Street Vision OCR</title>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@400;500;700&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 
-<body>
+<body class="theme-app">
+    <div class="bg-grid"></div>
+    <div class="bg-glow bg-glow-b"></div>
+    <div class="bg-glow bg-glow-c"></div>
+
     <nav class="navbar">
         <a href="/" class="nav-brand">
             <div class="nav-logo">OCR</div>
@@ -24,8 +29,9 @@
 
     <main class="app-main">
         <section class="page-header">
-            <h1 class="page-title">Upload Video OCR</h1>
-            <p class="page-desc">Select a local video, play or pause any frame, draw a box, and OCR runs in-browser.</p>
+            <p class="home-badge page-kicker">Local Clip Workflow</p>
+            <h1 class="page-title">Video Deck</h1>
+            <p class="page-desc">Drop a local clip, freeze the frame, draw selection, and extract clean text with browser OCR.</p>
         </section>
 
         <section class="workspace">
@@ -45,7 +51,7 @@
                     <div id="uploadZone" class="upload-zone">
                         <div class="upload-zone-content">
                             <p class="upload-main-text">Drop video here or click to select</p>
-                            <p class="upload-sub-text">OCR will run inside your browser on selected regions</p>
+                            <p class="upload-sub-text">Everything runs in-browser, no heavy server OCR required</p>
                             <p class="upload-formats">MP4, AVI, MOV, MKV, WEBM</p>
                         </div>
                     </div>
@@ -55,12 +61,12 @@
                     <input id="videoInput" type="file" accept="video/*" hidden>
                 </div>
 
-                <div class="panel-hint">Tip: pause at a clear frame and draw a tight selection around text.</div>
+                <div class="panel-hint">Pause on a sharp frame and draw tight bounds for better readability.</div>
             </div>
 
             <aside class="results-panel">
                 <div class="result-box">
-                    <div class="result-title">Selected Region Preview</div>
+                    <div class="result-title">Selection Zoom</div>
                     <div class="zoom-area">
                         <canvas id="zoomCanvas" style="display: none; max-width: 100%;"></canvas>
                         <p id="zoomEmpty" class="empty-msg">No region selected yet</p>
@@ -68,12 +74,12 @@
                 </div>
 
                 <div class="result-box text-area">
-                    <div class="result-title">Detected Text</div>
+                    <div class="result-title">OCR Output</div>
                     <pre id="ocrResult" class="ocr-result">Waiting for selection...</pre>
                 </div>
 
                 <div class="result-box">
-                    <div class="result-title">OCR Engine</div>
+                    <div class="result-title">Engine State</div>
                     <div class="zoom-area">
                         <p id="engineStatus" class="empty-msg">Tesseract.js ready</p>
                     </div>

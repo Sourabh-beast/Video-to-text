@@ -4,13 +4,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Real-Time OCR System for Video-Based Text Recognition in Traffic and Surveillance</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+    <title>Real-Time OCR System | Traffic and Surveillance</title>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@400;500;700&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 
-<body>
+<body class="theme-home">
+    <div class="bg-grid"></div>
+    <div class="bg-glow bg-glow-a"></div>
+    <div class="bg-glow bg-glow-b"></div>
+
     <nav class="navbar">
         <a href="/" class="nav-brand">
             <div class="nav-logo">OCR</div>
@@ -24,40 +28,60 @@
     </nav>
 
     <main class="home-container">
-        <h1 class="home-title">
-            REAL-TIME OCR SYSTEM FOR VIDEO-BASED TEXT RECOGNITION IN TRAFFIC AND SURVEILLANCE
-        </h1>
+        <section class="home-hero">
+            <p class="home-badge">Academic Project</p>
 
-        <p class="home-desc">
-            Detect and read text from traffic videos and surveillance footage
-            using browser-side OCR. Draw a region in webcam or uploaded video,
-            and text extraction runs directly on your device.
-        </p>
+            <h1 class="home-title">
+                REAL-TIME OCR SYSTEM
+                <span>for Video-Based Text Recognition in Traffic and Surveillance</span>
+            </h1>
 
-        <div class="home-tech">
-            <span class="tech-pill">Python</span>
-            <span class="tech-pill">Flask</span>
-            <span class="tech-pill">Tesseract.js</span>
-            <span class="tech-pill">JavaScript</span>
-        </div>
+            <p class="home-desc">
+                A professional OCR platform that extracts readable text from traffic and surveillance footage.
+                Select any region from webcam or uploaded video and process it in-browser with responsive visual feedback.
+            </p>
 
-        <div class="home-cards">
+            <div class="home-tech">
+                <span class="tech-pill">Python</span>
+                <span class="tech-pill">Flask</span>
+                <span class="tech-pill">Tesseract.js</span>
+                <span class="tech-pill">JavaScript</span>
+                <span class="tech-pill">Browser OCR</span>
+            </div>
+        </section>
+
+        <section class="home-cards">
             <a href="/webcam" class="home-card">
-                <div class="home-card-icon">CAM</div>
-                <h3>Live Webcam</h3>
-                <p>Use camera and draw a region to run manual OCR directly in browser</p>
-                <div class="home-card-btn">Open Webcam →</div>
+                <div class="home-card-icon">01</div>
+                <h3>Live Webcam OCR</h3>
+                <p>Capture live camera stream, draw selection bounds, and detect text from targeted regions.</p>
+                <div class="home-card-btn">Open Webcam Module</div>
             </a>
 
             <a href="/upload" class="home-card">
-                <div class="home-card-icon">VID</div>
-                <h3>Upload Video</h3>
-                <p>Load local video, pause at a frame, and extract text from selected region</p>
-                <div class="home-card-btn">Upload Video →</div>
+                <div class="home-card-icon">02</div>
+                <h3>Upload Video OCR</h3>
+                <p>Load recorded traffic footage, pause on key frames, and run OCR on selected text areas.</p>
+                <div class="home-card-btn">Open Upload Module</div>
             </a>
-        </div>
+        </section>
 
-        <p class="home-footer">Built with Python Flask and browser-side Tesseract.js OCR</p>
+        <section class="home-highlights">
+            <article class="highlight-item">
+                <h4>Region-Based Precision</h4>
+                <p>Manual bounding gives cleaner OCR output for dense traffic scenes and mixed backgrounds.</p>
+            </article>
+            <article class="highlight-item">
+                <h4>Browser-Side Processing</h4>
+                <p>Text extraction runs on client side, reducing server load and improving deployment reliability.</p>
+            </article>
+            <article class="highlight-item">
+                <h4>Deployment Ready</h4>
+                <p>Lightweight Flask backend and Render-compatible setup for production hosting workflows.</p>
+            </article>
+        </section>
+
+        <p class="home-footer">Final Year Project • Real-Time OCR for Traffic and Surveillance Workflows</p>
     </main>
 </body>
 

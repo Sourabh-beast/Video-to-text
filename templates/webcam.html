@@ -4,12 +4,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Webcam OCR | Traffic OCR System</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <title>Webcam Arena | Street Vision OCR</title>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@400;500;700&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 
-<body>
+<body class="theme-app">
+    <div class="bg-grid"></div>
+    <div class="bg-glow bg-glow-a"></div>
+    <div class="bg-glow bg-glow-c"></div>
+
     <nav class="navbar">
         <a href="/" class="nav-brand">
             <div class="nav-logo">OCR</div>
@@ -24,8 +29,9 @@
 
     <main class="app-main">
         <section class="page-header">
-            <h1 class="page-title">Live Webcam OCR</h1>
-            <p class="page-desc">Start camera, draw a rectangle on text, and OCR runs directly in your browser.</p>
+            <p class="home-badge page-kicker">Realtime Input</p>
+            <h1 class="page-title">Webcam Arena</h1>
+            <p class="page-desc">Start camera, drag-select text region, and OCR runs instantly in-browser with live feedback.</p>
         </section>
 
         <section class="workspace">
@@ -37,13 +43,15 @@
                     </div>
                     <div class="panel-buttons">
                         <button id="startBtn" class="btn btn-start">Start Camera</button>
-                        <button id="stopBtn" class="btn btn-stop" disabled>Stop</button>
+                        <button id="stopBtn" class="btn btn-stop" disabled>Stop Camera</button>
                     </div>
                 </div>
 
                 <div id="videoArea" class="video-area">
+                    <div class="scan-line"></div>
+
                     <div id="placeholder" class="placeholder">
-                        <div class="placeholder-icon">CAM</div>
+                        <div class="placeholder-icon">LIVE</div>
                         <p>Camera feed will appear here</p>
                     </div>
 
@@ -51,12 +59,12 @@
                     <div id="selectBox" class="select-box"></div>
                 </div>
 
-                <div class="panel-hint">Draw a tight box around the text region for better OCR accuracy.</div>
+                <div class="panel-hint">Draw a tight box around text for sharper OCR output.</div>
             </div>
 
             <aside class="results-panel">
                 <div class="result-box">
-                    <div class="result-title">Selected Region Preview</div>
+                    <div class="result-title">Selection Zoom</div>
                     <div class="zoom-area">
                         <canvas id="zoomCanvas" style="display: none; max-width: 100%;"></canvas>
                         <p id="zoomEmpty" class="empty-msg">No region selected yet</p>
@@ -64,12 +72,12 @@
                 </div>
 
                 <div class="result-box text-area">
-                    <div class="result-title">Detected Text</div>
+                    <div class="result-title">OCR Output</div>
                     <pre id="ocrResult" class="ocr-result">Waiting for selection...</pre>
                 </div>
 
                 <div class="result-box">
-                    <div class="result-title">OCR Engine</div>
+                    <div class="result-title">Engine State</div>
                     <div class="zoom-area">
                         <p id="engineStatus" class="empty-msg">Tesseract.js ready</p>
                     </div>
