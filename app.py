@@ -64,23 +64,25 @@ ALLOWED_EXTENSIONS = {'mp4', 'avi', 'mov', 'mkv', 'wmv', 'flv', 'webm'}
 # ─── OCR Quality Constants ────────────────────────────────────────────────────
 MIN_CONFIDENCE = 0.12
 MANUAL_CONFIDENCE_MIN = 0.45
-MANUAL_MAX_RESULTS = 6
-MANUAL_OCR_MAX_SIDE = 1152
-MANUAL_OCR_UPSCALE_MIN = 576
-EASYOCR_TEXT_THRESHOLD = 0.70
-EASYOCR_LOW_TEXT = 0.40
+MANUAL_MAX_RESULTS = 16
+MANUAL_OCR_MAX_SIDE = 1600
+MANUAL_OCR_UPSCALE_MIN = 800
+MIN_MANUAL_LINES = 4
+EASYOCR_TEXT_THRESHOLD = 0.65
+EASYOCR_LOW_TEXT = 0.35
 EASYOCR_LINK_THRESHOLD = 0.40
-EASYOCR_MAG_RATIO = 1.0
-EASYOCR_CANVAS_SIZE = 1280
+EASYOCR_MAG_RATIO = 1.2
+EASYOCR_CANVAS_SIZE = 1600
 EASYOCR_CONTRAST_THS = 0.08
 EASYOCR_ADJUST_CONTRAST = 0.55
 EASYOCR_DECODER = "greedy"
 EASYOCR_FALLBACK = True
-EASYOCR_FALLBACK_TEXT_THRESHOLD = 0.60
-EASYOCR_FALLBACK_LOW_TEXT = 0.30
+EASYOCR_FALLBACK_TEXT_THRESHOLD = 0.55
+EASYOCR_FALLBACK_LOW_TEXT = 0.25
 EASYOCR_FALLBACK_LINK_THRESHOLD = 0.30
-EASYOCR_FALLBACK_MAG_RATIO = 1.2
-EASYOCR_FALLBACK_CANVAS_SIZE = 1600
+EASYOCR_FALLBACK_MAG_RATIO = 1.4
+EASYOCR_FALLBACK_CANVAS_SIZE = 2000
+EASYOCR_FALLBACK_DECODER = "beamsearch"
 OCR_DET_LIMIT_SIDE = 1920
 OCR_DET_THRESH = 0.10
 OCR_DET_BOX_THRESH = 0.20
@@ -376,7 +378,7 @@ def _read_easyocr_texts_fallback(frame):
         canvas_size=EASYOCR_FALLBACK_CANVAS_SIZE,
         contrast_ths=EASYOCR_CONTRAST_THS,
         adjust_contrast=EASYOCR_ADJUST_CONTRAST,
-        decoder=EASYOCR_DECODER,
+        decoder=EASYOCR_FALLBACK_DECODER,
     )
     detections = []
     for entry in results:
@@ -888,18 +890,38 @@ def run_ocr_on_region(image):
     detections = _read_easyocr_texts(enhanced)
     if not detections:
         detections = _read_easyocr_texts(resized)
-    if not detections:
-        detections = _read_easyocr_texts_fallback(enhanced)
-    if not detections:
-        detections = _read_easyocr_texts_fallback(resized)
+    if len(detections) < MIN_MANUAL_LINES:
+        fallback_dets = _read_easyocr_texts_fallback(enhanced)
+        if not fallback_dets:
+            fallback_dets = _read_easyocr_texts_fallback(resized)
+        if fallback_dets:
+            detections = detections + fallback_dets
 
     if detections:
+        merged = {}
+        for det in detections:
+            text = det['text']
+            conf = det['confidence']
+            if text not in merged or conf > merged[text]:
+                merged[text] = conf
+        detections = [{'text': text, 'confidence': conf} for text, conf in merged.items()]
         strong = [d for d in detections if d['confidence'] >= MANUAL_CONFIDENCE_MIN and _is_valid_text(d['text'])]
+        others = [d for d in detections if _is_valid_text(d['text'])]
+
         if not strong:
-            strong = [d for d in detections if _is_valid_text(d['text'])]
+            strong = others
+
         if strong:
             strong = sorted(strong, key=lambda d: d['confidence'], reverse=True)
             texts = [d['text'] for d in strong[:MANUAL_MAX_RESULTS]]
+            if len(texts) < MANUAL_MAX_RESULTS:
+                seen = set(texts)
+                extras = [d for d in others if d['text'] not in seen]
+                extras = sorted(extras, key=lambda d: d['confidence'], reverse=True)
+                for det in extras:
+                    if len(texts) >= MANUAL_MAX_RESULTS:
+                        break
+                    texts.append(det['text'])
             return " ".join(texts)
     return "No text detected"
 
