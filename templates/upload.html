@@ -4,9 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Upload Video — Real-Time OCR System</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
-        rel="stylesheet">
+    <title>Upload OCR | Traffic OCR System</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 
@@ -24,294 +23,288 @@
     </nav>
 
     <main class="app-main">
-        <div class="page-header">
-            <h1 class="page-title">Upload Video — Text Recognition</h1>
-            <p class="page-desc">Upload traffic or surveillance footage, then draw a rectangle to detect text</p>
-        </div>
+        <section class="page-header">
+            <h1 class="page-title">Upload Video OCR</h1>
+            <p class="page-desc">Select a local video, play or pause any frame, draw a box, and OCR runs in-browser.</p>
+        </section>
 
-        <div class="workspace">
+        <section class="workspace">
             <div class="video-panel">
                 <div class="panel-bar">
                     <div class="panel-status">
-                        <span class="status-dot" id="statusDot"></span>
+                        <span id="statusDot" class="status-dot"></span>
                         <span id="statusText">No Video Loaded</span>
                     </div>
                     <div class="panel-buttons">
-                        <label class="btn btn-start" for="fileInput" id="btnUpload">↑ Choose Video</label>
-                        <input type="file" id="fileInput" accept="video/*" style="display:none;">
-                        <button class="btn btn-stop" id="btnClear" style="display:none;">✕ Clear</button>
+                        <button id="chooseBtn" class="btn btn-start">Choose Video</button>
+                        <button id="clearBtn" class="btn btn-stop" disabled>Clear</button>
                     </div>
                 </div>
-                <div class="video-area" id="videoArea">
-                    <div class="upload-zone" id="uploadZone">
+
+                <div id="videoArea" class="video-area">
+                    <div id="uploadZone" class="upload-zone">
                         <div class="upload-zone-content">
-                            <div class="placeholder-icon">📁</div>
-                            <p class="upload-main-text">Drag & Drop video here</p>
-                            <p class="upload-sub-text">or click "Choose Video" above</p>
-                            <span class="upload-formats">MP4, AVI, MOV, MKV</span>
+                            <p class="upload-main-text">Drop video here or click to select</p>
+                            <p class="upload-sub-text">OCR will run inside your browser on selected regions</p>
+                            <p class="upload-formats">MP4, AVI, MOV, MKV, WEBM</p>
                         </div>
                     </div>
-                    <div class="upload-progress" id="progressBox" style="display:none;">
-                        <div class="progress-track">
-                            <div class="progress-bar" id="progressBar"></div>
-                        </div>
-                        <p id="progressText">Uploading...</p>
-                    </div>
-                    <video id="videoPlayer" class="video-player" style="display:none;" muted loop></video>
-                    <div class="select-box" id="selectBox"></div>
+
+                    <video id="videoPlayer" class="video-player" controls style="display: none;"></video>
+                    <div id="selectBox" class="select-box"></div>
+                    <input id="videoInput" type="file" accept="video/*" hidden>
                 </div>
-                <div class="panel-hint" id="hint" style="display:none;">🖱️ Click & drag to select text region</div>
+
+                <div class="panel-hint">Tip: pause at a clear frame and draw a tight selection around text.</div>
             </div>
 
-            <div class="results-panel">
+            <aside class="results-panel">
                 <div class="result-box">
-                    <div class="result-title">🔍 Zoomed Region</div>
+                    <div class="result-title">Selected Region Preview</div>
                     <div class="zoom-area">
-                        <p class="empty-msg" id="zoomEmpty">Draw a rectangle to zoom</p>
-                        <img id="zoomImg" class="zoomed-img" style="display:none;" alt="Zoomed">
+                        <canvas id="zoomCanvas" style="display: none; max-width: 100%;"></canvas>
+                        <p id="zoomEmpty" class="empty-msg">No region selected yet</p>
                     </div>
                 </div>
+
+                <div class="result-box text-area">
+                    <div class="result-title">Detected Text</div>
+                    <pre id="ocrResult" class="ocr-result">Waiting for selection...</pre>
+                </div>
+
                 <div class="result-box">
-                    <div class="result-title">📝 Detected Text</div>
-                    <div class="text-area">
-                        <p class="empty-msg" id="textEmpty">OCR results appear here</p>
-                        <pre class="ocr-result" id="ocrResult" style="display:none;"></pre>
+                    <div class="result-title">OCR Engine</div>
+                    <div class="zoom-area">
+                        <p id="engineStatus" class="empty-msg">Tesseract.js ready</p>
                     </div>
                 </div>
-            </div>
-        </div>
+            </aside>
+        </section>
     </main>
 
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <script>
-        const fileInput = document.getElementById('fileInput');
-        const videoPlayer = document.getElementById('videoPlayer');
-        const uploadZone = document.getElementById('uploadZone');
-        const progressBox = document.getElementById('progressBox');
-        const progressBar = document.getElementById('progressBar');
-        const progressText = document.getElementById('progressText');
+        const video = document.getElementById('videoPlayer');
         const videoArea = document.getElementById('videoArea');
+        const uploadZone = document.getElementById('uploadZone');
+        const videoInput = document.getElementById('videoInput');
         const selectBox = document.getElementById('selectBox');
-        const zoomImg = document.getElementById('zoomImg');
-        const ocrResult = document.getElementById('ocrResult');
-        const zoomEmpty = document.getElementById('zoomEmpty');
-        const textEmpty = document.getElementById('textEmpty');
+        const chooseBtn = document.getElementById('chooseBtn');
+        const clearBtn = document.getElementById('clearBtn');
         const statusDot = document.getElementById('statusDot');
         const statusText = document.getElementById('statusText');
-        const btnClear = document.getElementById('btnClear');
-        const btnUpload = document.getElementById('btnUpload');
-        const hint = document.getElementById('hint');
+        const zoomCanvas = document.getElementById('zoomCanvas');
+        const zoomEmpty = document.getElementById('zoomEmpty');
+        const ocrResult = document.getElementById('ocrResult');
+        const engineStatus = document.getElementById('engineStatus');
 
-        let videoReady = false, drawing = false, sx, sy;
-        let zoomTimer = null, textTimer = null;
+        let currentVideoUrl = null;
+        let isDragging = false;
+        let startX = 0;
+        let startY = 0;
+        let isProcessing = false;
 
-        // Drag & drop
-        uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-hover'); });
-        uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-hover'));
-        uploadZone.addEventListener('drop', e => {
-            e.preventDefault(); uploadZone.classList.remove('drag-hover');
-            if (e.dataTransfer.files.length > 0) doUpload(e.dataTransfer.files[0]);
-        });
-
-        fileInput.addEventListener('change', () => {
-            if (fileInput.files.length > 0) doUpload(fileInput.files[0]);
-        });
-
-        function doUpload(file) {
-            uploadZone.style.display = 'none';
-            progressBox.style.display = 'flex';
-            progressBar.style.width = '0%';
-            progressBar.classList.remove('error');
-            progressText.textContent = 'Uploading ' + file.name + '...';
-
-            const xhr = new XMLHttpRequest();
-            const fd = new FormData();
-            fd.append('video', file);
-
-            xhr.upload.addEventListener('progress', e => {
-                if (e.lengthComputable) {
-                    const pct = Math.round((e.loaded / e.total) * 100);
-                    progressBar.style.width = pct + '%';
-                    progressText.textContent = 'Uploading... ' + pct + '%';
-                }
-            });
-
-            xhr.addEventListener('load', () => {
-                try {
-                    const data = JSON.parse(xhr.responseText);
-                    if (xhr.status === 200 && data.status === 'uploaded') {
-                        progressBar.style.width = '100%';
-                        progressText.textContent = 'Done! Loading video...';
-                        setTimeout(() => {
-                            progressBox.style.display = 'none';
-                            videoPlayer.src = '/uploads/' + encodeURIComponent(data.filename);
-                            videoPlayer.style.display = 'block';
-                            videoReady = false;
-                            videoPlayer.onloadeddata = () => {
-                                videoPlayer.play();
-                                videoReady = true;
-                                hint.style.display = 'flex';
-                            };
-                            statusDot.classList.add('on');
-                            statusText.textContent = 'Playing: ' + file.name;
-                            btnClear.style.display = 'inline-flex';
-                            btnUpload.style.display = 'none';
-                        }, 400);
-                    } else {
-                        progressText.textContent = 'Error: ' + (data.error || 'Upload failed');
-                        progressBar.classList.add('error'); progressBar.style.width = '100%';
-                    }
-                } catch (e) {
-                    progressText.textContent = 'Error parsing response';
-                    progressBar.classList.add('error');
-                }
-            });
-
-            xhr.addEventListener('error', () => {
-                progressText.textContent = 'Network error';
-                progressBar.classList.add('error');
-            });
-
-            xhr.open('POST', '/upload_video');
-            xhr.timeout = 300000;
-            xhr.send(fd);
+        function setStatus(active, text) {
+            statusDot.classList.toggle('on', active);
+            statusText.textContent = text;
         }
 
-        // Clear
-        btnClear.addEventListener('click', () => {
-            videoPlayer.pause(); videoPlayer.src = '';
-            videoPlayer.style.display = 'none';
+        function clamp(value, min, max) {
+            return Math.max(min, Math.min(max, value));
+        }
+
+        function clearLoadedVideo() {
+            if (currentVideoUrl) {
+                URL.revokeObjectURL(currentVideoUrl);
+                currentVideoUrl = null;
+            }
+
+            video.pause();
+            video.removeAttribute('src');
+            video.load();
+            video.style.display = 'none';
             uploadZone.style.display = 'flex';
-            statusDot.classList.remove('on');
-            statusText.textContent = 'No Video Loaded';
-            btnClear.style.display = 'none';
-            btnUpload.style.display = 'inline-flex';
-            hint.style.display = 'none';
-            videoReady = false;
-            zoomImg.style.display = 'none';
+            selectBox.style.display = 'none';
+            chooseBtn.disabled = false;
+            clearBtn.disabled = true;
+            setStatus(false, 'No Video Loaded');
+            ocrResult.textContent = 'Waiting for selection...';
+            engineStatus.textContent = 'Tesseract.js ready';
+            zoomCanvas.style.display = 'none';
             zoomEmpty.style.display = 'block';
-            ocrResult.style.display = 'none'; textEmpty.style.display = 'block';
-        });
+        }
 
-        // ══════════════════════════════════════════════════════════════
-
-        // ══════════════════════════════════════════════════════════════
-        // MANUAL MODE — Mouse selection (unchanged, works when auto-detect is OFF)
-        // ══════════════════════════════════════════════════════════════
-        videoArea.addEventListener('mousedown', e => {
-            if (!videoReady) return;
-            const r = videoArea.getBoundingClientRect();
-            sx = e.clientX - r.left; sy = e.clientY - r.top;
-            drawing = true;
-            selectBox.style.display = 'block';
-            selectBox.style.left = sx + 'px'; selectBox.style.top = sy + 'px';
-            selectBox.style.width = '0'; selectBox.style.height = '0';
-        });
-
-        videoArea.addEventListener('mousemove', e => {
-            if (!drawing) return;
-            const r = videoArea.getBoundingClientRect();
-            const cx = e.clientX - r.left, cy = e.clientY - r.top;
-            selectBox.style.left = Math.min(sx, cx) + 'px';
-            selectBox.style.top = Math.min(sy, cy) + 'px';
-            selectBox.style.width = Math.abs(cx - sx) + 'px';
-            selectBox.style.height = Math.abs(cy - sy) + 'px';
-        });
-
-        videoArea.addEventListener('mouseup', async e => {
-            if (!drawing) return;
-            drawing = false;
-            const r = videoArea.getBoundingClientRect();
-            const ex = e.clientX - r.left, ey = e.clientY - r.top;
-            const x1 = Math.min(sx, ex), y1 = Math.min(sy, ey);
-            const x2 = Math.max(sx, ex), y2 = Math.max(sy, ey);
-            if ((x2 - x1) < 10 || (y2 - y1) < 10) { selectBox.style.display = 'none'; return; }
-
-            setTimeout(() => { selectBox.style.display = 'none'; }, 500);
-
-            const canvas = document.createElement('canvas');
-            const vw = videoPlayer.videoWidth;
-            const vh = videoPlayer.videoHeight;
-            if (!vw || !vh) {
-                ocrResult.textContent = 'Video not ready yet. Try again in a second.';
-                ocrResult.style.display = 'block'; textEmpty.style.display = 'none';
+        function loadVideo(file) {
+            if (!file) {
                 return;
             }
-            canvas.width = vw;
-            canvas.height = vh;
-            canvas.getContext('2d').drawImage(videoPlayer, 0, 0, canvas.width, canvas.height);
-            const scX = canvas.width / videoArea.offsetWidth;
-            const scY = canvas.height / videoArea.offsetHeight;
 
-            const cx1 = Math.max(0, Math.round(x1 * scX));
-            const cy1 = Math.max(0, Math.round(y1 * scY));
-            const cx2 = Math.min(canvas.width, Math.round(x2 * scX));
-            const cy2 = Math.min(canvas.height, Math.round(y2 * scY));
-            const cropW = Math.max(1, cx2 - cx1);
-            const cropH = Math.max(1, cy2 - cy1);
+            if (currentVideoUrl) {
+                URL.revokeObjectURL(currentVideoUrl);
+            }
+
+            currentVideoUrl = URL.createObjectURL(file);
+            video.src = currentVideoUrl;
+            video.style.display = 'block';
+            uploadZone.style.display = 'none';
+            clearBtn.disabled = false;
+            setStatus(true, `Loaded: ${file.name}`);
+            ocrResult.textContent = 'Draw a region to detect text.';
+            video.play().catch(() => {
+                // User can manually play if autoplay is blocked.
+            });
+        }
+
+        function updateSelectBox(x1, y1, x2, y2) {
+            const left = Math.min(x1, x2);
+            const top = Math.min(y1, y2);
+            const width = Math.abs(x2 - x1);
+            const height = Math.abs(y2 - y1);
+
+            selectBox.style.display = 'block';
+            selectBox.style.left = `${left}px`;
+            selectBox.style.top = `${top}px`;
+            selectBox.style.width = `${width}px`;
+            selectBox.style.height = `${height}px`;
+        }
+
+        async function runOcrFromSelection(x1, y1, x2, y2) {
+            if (isProcessing || video.style.display === 'none') {
+                return;
+            }
+
+            const rect = video.getBoundingClientRect();
+            const left = Math.min(x1, x2);
+            const top = Math.min(y1, y2);
+            const width = Math.abs(x2 - x1);
+            const height = Math.abs(y2 - y1);
+
+            if (width < 12 || height < 12) {
+                ocrResult.textContent = 'Selection too small. Draw a bigger region.';
+                return;
+            }
+
+            if (!video.videoWidth || !video.videoHeight) {
+                ocrResult.textContent = 'Video frame not ready yet.';
+                return;
+            }
+
+            const scaleX = video.videoWidth / rect.width;
+            const scaleY = video.videoHeight / rect.height;
+
+            const sx = Math.floor(left * scaleX);
+            const sy = Math.floor(top * scaleY);
+            const sw = Math.floor(width * scaleX);
+            const sh = Math.floor(height * scaleY);
 
             const cropCanvas = document.createElement('canvas');
-            cropCanvas.width = cropW;
-            cropCanvas.height = cropH;
-            cropCanvas.getContext('2d').drawImage(canvas, cx1, cy1, cropW, cropH, 0, 0, cropW, cropH);
+            cropCanvas.width = sw;
+            cropCanvas.height = sh;
 
-            const zoomW = 500;
-            const zoomScale = zoomW / cropW;
-            const zoomH = Math.max(50, Math.round(cropH * zoomScale));
-            const zoomCanvas = document.createElement('canvas');
-            zoomCanvas.width = zoomW;
-            zoomCanvas.height = zoomH;
-            zoomCanvas.getContext('2d').drawImage(cropCanvas, 0, 0, cropW, cropH, 0, 0, zoomW, zoomH);
+            const cropCtx = cropCanvas.getContext('2d');
+            cropCtx.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh);
 
-            zoomImg.src = zoomCanvas.toDataURL('image/jpeg', 0.9);
-            zoomImg.style.display = 'block';
+            const zoomCtx = zoomCanvas.getContext('2d');
+            zoomCanvas.width = sw;
+            zoomCanvas.height = sh;
+            zoomCtx.drawImage(cropCanvas, 0, 0);
+            zoomCanvas.style.display = 'block';
             zoomEmpty.style.display = 'none';
-            if (zoomTimer) clearTimeout(zoomTimer);
-            zoomTimer = setTimeout(() => {
-                zoomImg.style.display = 'none';
-                zoomEmpty.style.display = 'block';
-            }, 5000);
 
-            ocrResult.textContent = 'Detecting...';
-            ocrResult.style.display = 'block'; textEmpty.style.display = 'none';
+            isProcessing = true;
+            ocrResult.textContent = 'Detecting text...';
+            engineStatus.textContent = 'Running OCR...';
 
-            canvas.toBlob(async blob => {
-                const fd = new FormData();
-                fd.append('frame', blob, 'frame.jpg');
-                fd.append('x1', cx1);
-                fd.append('y1', cy1);
-                fd.append('x2', cx2);
-                fd.append('y2', cy2);
-                try {
-                    const res = await fetch('/ocr_region', { method: 'POST', body: fd });
-                    if (!res.ok) throw new Error('Server error');
-                    const data = await res.json();
-                    if (data.error) throw new Error(data.error);
-
-                    if (data.zoomed_image) {
-                        zoomImg.src = data.zoomed_image;
-                        zoomImg.style.display = 'block'; zoomEmpty.style.display = 'none';
-                        if (zoomTimer) clearTimeout(zoomTimer);
-                        zoomTimer = setTimeout(() => {
-                            zoomImg.style.display = 'none';
-                            zoomEmpty.style.display = 'block';
-                        }, 5000);
+            try {
+                const result = await Tesseract.recognize(cropCanvas, 'eng', {
+                    logger: (message) => {
+                        if (message.status === 'recognizing text' && typeof message.progress === 'number') {
+                            const percent = Math.round(message.progress * 100);
+                            engineStatus.textContent = `OCR progress: ${percent}%`;
+                        }
                     }
+                });
 
-                    ocrResult.textContent = data.text || 'No text detected';
-                    if (textTimer) clearTimeout(textTimer);
-                    textTimer = setTimeout(() => {
-                        ocrResult.style.display = 'none';
-                        textEmpty.style.display = 'block';
-                    }, 10000);
-                } catch (err) {
-                    ocrResult.textContent = 'Error: ' + err.message;
-                    if (textTimer) clearTimeout(textTimer);
-                    textTimer = setTimeout(() => {
-                        ocrResult.style.display = 'none';
-                        textEmpty.style.display = 'block';
-                    }, 10000);
-                }
-            }, 'image/jpeg', 0.9);
+                const cleanText = (result.data.text || '').replace(/\s+/g, ' ').trim();
+                ocrResult.textContent = cleanText || 'No text detected';
+                engineStatus.textContent = 'Tesseract.js ready';
+            } catch (error) {
+                ocrResult.textContent = 'OCR failed on selected region.';
+                engineStatus.textContent = 'OCR error';
+            } finally {
+                isProcessing = false;
+            }
+        }
+
+        chooseBtn.addEventListener('click', () => videoInput.click());
+
+        clearBtn.addEventListener('click', () => {
+            clearLoadedVideo();
+        });
+
+        videoInput.addEventListener('change', (event) => {
+            const file = event.target.files && event.target.files[0];
+            loadVideo(file);
+            videoInput.value = '';
+        });
+
+        uploadZone.addEventListener('click', () => videoInput.click());
+
+        uploadZone.addEventListener('dragover', (event) => {
+            event.preventDefault();
+            uploadZone.classList.add('drag-hover');
+        });
+
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.classList.remove('drag-hover');
+        });
+
+        uploadZone.addEventListener('drop', (event) => {
+            event.preventDefault();
+            uploadZone.classList.remove('drag-hover');
+            const file = event.dataTransfer.files && event.dataTransfer.files[0];
+            loadVideo(file);
+        });
+
+        videoArea.addEventListener('mousedown', (event) => {
+            if (video.style.display === 'none') {
+                return;
+            }
+
+            const rect = video.getBoundingClientRect();
+            startX = clamp(event.clientX - rect.left, 0, rect.width);
+            startY = clamp(event.clientY - rect.top, 0, rect.height);
+            isDragging = true;
+            updateSelectBox(startX, startY, startX, startY);
+        });
+
+        videoArea.addEventListener('mousemove', (event) => {
+            if (!isDragging) {
+                return;
+            }
+
+            const rect = video.getBoundingClientRect();
+            const currentX = clamp(event.clientX - rect.left, 0, rect.width);
+            const currentY = clamp(event.clientY - rect.top, 0, rect.height);
+            updateSelectBox(startX, startY, currentX, currentY);
+        });
+
+        window.addEventListener('mouseup', async (event) => {
+            if (!isDragging) {
+                return;
+            }
+
+            const rect = video.getBoundingClientRect();
+            const endX = clamp(event.clientX - rect.left, 0, rect.width);
+            const endY = clamp(event.clientY - rect.top, 0, rect.height);
+            isDragging = false;
+            await runOcrFromSelection(startX, startY, endX, endY);
+        });
+
+        window.addEventListener('beforeunload', () => {
+            if (currentVideoUrl) {
+                URL.revokeObjectURL(currentVideoUrl);
+            }
         });
     </script>
 </body>

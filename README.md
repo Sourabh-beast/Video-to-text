@@ -1,96 +1,90 @@
-# Real-Time OCR System for Video-Based Text Recognition in Traffic and Surveillance
+# Real-Time OCR for Traffic and Surveillance Video
 
-A web-based OCR system for traffic and surveillance footage. It supports both webcam and uploaded videos, with manual region selection. OCR is powered by EasyOCR (CRAFT detector + CRNN recognizer) and runs on CPU.
+This project is optimized for free deployment on Render.
+
+OCR runs in the browser using Tesseract.js, and Flask only serves the web pages. This removes heavy server-side ML dependencies and makes free-tier hosting practical.
 
 ## Features
 
-- Webcam mode and video upload mode
-- Manual rectangle selection for OCR (no auto-detect)
-- Zoomed region preview shown for 5 seconds
-- Detected text shown for 10 seconds
-- OCR preprocessing (contrast + sharpening) for better accuracy
+- Webcam OCR with manual region selection
+- Local video OCR with manual region selection
+- In-browser OCR (no heavy OCR model on server)
+- Free-tier friendly deployment on Render
 
 ## Tech Stack
 
 | Technology | Purpose |
 |---|---|
-| Python 3.10+ | Core language |
-| Flask | Web server |
-| OpenCV | Video capture and image processing |
-| EasyOCR | OCR engine (CRAFT + CRNN) |
-| NumPy | Array operations |
-| HTML/CSS/JavaScript | UI and client logic |
+| Python 3.10+ | Backend runtime |
+| Flask | Web app server |
+| Gunicorn | Production WSGI server |
+| HTML/CSS/JavaScript | UI and interaction |
+| Tesseract.js | Browser-side OCR engine |
 
 ## Project Structure
 
 ```
-Real-Time-OCR-System/
-├── app.py                 # Flask web server (main backend)
-├── requirements.txt       # Python dependencies
-├── README.md              # This documentation
-├── templates/
-│   ├── index.html          # Home page
-│   ├── webcam.html         # Live webcam page
-│   └── upload.html         # Video upload page
-├── static/
-│   └── css/
-│       └── style.css       # Website styling
-└── uploads/                # Uploaded videos (auto-created)
+Video-to-text/
+|-- app.py
+|-- requirements.txt
+|-- runtime.txt
+|-- .render.yaml
+|-- templates/
+|   |-- index.html
+|   |-- webcam.html
+|   `-- upload.html
+`-- static/
+    `-- css/
+        `-- style.css
 ```
 
-## Installation
-
-Recommended Python version: 3.10
+## Run Locally
 
 ```bash
-python -m venv venv310
-venv310\Scripts\activate
+python -m venv .venv
+.venv\Scripts\activate
 pip install -r requirements.txt
-```
-
-Note: First install will download EasyOCR model weights (about 1-2GB). This is a one-time download.
-
-## Usage
-
-Start the web app:
-
-```bash
 python app.py
 ```
 
-Open http://localhost:5000 in your browser. The home page provides two options:
+Then open `http://localhost:5000`.
 
-- Live Webcam
-- Upload Video
+## Render Free Deployment
 
-### Webcam Flow
+1. Push this project to GitHub.
+2. In Render, create a new Blueprint and select your repo.
+3. Render will use `.render.yaml` automatically.
+4. Deploy.
 
-1) Open the Webcam page.
-2) Click Start Camera.
-3) Draw a rectangle on the text area.
-4) The zoomed region appears for 5 seconds and the detected text for 10 seconds.
+Current `.render.yaml` is already free-tier friendly:
 
-### Upload Flow
+- `plan: free`
+- lightweight Python web service
+- no paid persistent disk needed
 
-1) Open the Upload Video page.
-2) Choose a video file and wait for it to play.
-3) Draw a rectangle on the text area.
-4) The zoomed region appears for 5 seconds and the detected text for 10 seconds.
+## Usage
 
-## Tuning Accuracy and Speed
+### Webcam
 
-Adjust these in app.py:
+1. Open Webcam page.
+2. Click Start Camera.
+3. Draw a box around text.
+4. OCR result appears in the right panel.
 
-- MANUAL_CONFIDENCE_MIN: higher value means stricter results
-- MANUAL_OCR_MAX_SIDE: lower value speeds up OCR
-- MANUAL_OCR_UPSCALE_MIN: higher value can improve small text detection
+### Upload Video
 
-Tips for best results:
+1. Open Upload Video page.
+2. Select or drop a local video file.
+3. Pause on a clear frame (optional but recommended).
+4. Draw a box around text.
+5. OCR result appears in the right panel.
 
-- Draw a tight rectangle around the text
-- Use clear frames (pause the video if needed)
-- Ensure good lighting and contrast
+## Important Notes
+
+- First OCR run in browser can take longer while language data loads.
+- OCR speed depends on end-user device performance.
+- Webcam access requires HTTPS on deployed site (Render provides HTTPS).
 
 ## License
 
-This project is for educational use.
+Educational use.

@@ -4,9 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Webcam — Real-Time OCR System</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
-        rel="stylesheet">
+    <title>Webcam OCR | Traffic OCR System</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 
@@ -24,223 +23,247 @@
     </nav>
 
     <main class="app-main">
-        <div class="page-header">
-            <h1 class="page-title">Live Webcam — Text Recognition</h1>
-            <p class="page-desc">Start your camera and draw a rectangle to detect text</p>
-        </div>
+        <section class="page-header">
+            <h1 class="page-title">Live Webcam OCR</h1>
+            <p class="page-desc">Start camera, draw a rectangle on text, and OCR runs directly in your browser.</p>
+        </section>
 
-        <div class="workspace">
+        <section class="workspace">
             <div class="video-panel">
                 <div class="panel-bar">
                     <div class="panel-status">
-                        <span class="status-dot" id="statusDot"></span>
+                        <span id="statusDot" class="status-dot"></span>
                         <span id="statusText">Camera Off</span>
                     </div>
                     <div class="panel-buttons">
-                        <button class="btn btn-start" id="btnStart">▶ Start Camera</button>
-                        <button class="btn btn-stop" id="btnStop" style="display:none;">■ Stop</button>
+                        <button id="startBtn" class="btn btn-start">Start Camera</button>
+                        <button id="stopBtn" class="btn btn-stop" disabled>Stop</button>
                     </div>
                 </div>
-                <div class="video-area" id="videoArea">
-                    <div class="placeholder" id="placeholder">
-                        <div class="placeholder-icon">📷</div>
-                        <p>Click "Start Camera" to begin</p>
+
+                <div id="videoArea" class="video-area">
+                    <div id="placeholder" class="placeholder">
+                        <div class="placeholder-icon">CAM</div>
+                        <p>Camera feed will appear here</p>
                     </div>
-                    <video id="camVideo" class="video-player" style="display:none;" autoplay playsinline muted></video>
-                    <div class="select-box" id="selectBox"></div>
+
+                    <video id="videoPlayer" class="video-player" autoplay playsinline muted style="display: none;"></video>
+                    <div id="selectBox" class="select-box"></div>
                 </div>
-                <div class="panel-hint">🖱️ Click & drag to select text region</div>
+
+                <div class="panel-hint">Draw a tight box around the text region for better OCR accuracy.</div>
             </div>
 
-            <div class="results-panel">
+            <aside class="results-panel">
                 <div class="result-box">
-                    <div class="result-title">🔍 Zoomed Region</div>
+                    <div class="result-title">Selected Region Preview</div>
                     <div class="zoom-area">
-                        <p class="empty-msg" id="zoomEmpty">Draw a rectangle to zoom</p>
-                        <img id="zoomImg" class="zoomed-img" style="display:none;" alt="Zoomed">
+                        <canvas id="zoomCanvas" style="display: none; max-width: 100%;"></canvas>
+                        <p id="zoomEmpty" class="empty-msg">No region selected yet</p>
                     </div>
                 </div>
+
+                <div class="result-box text-area">
+                    <div class="result-title">Detected Text</div>
+                    <pre id="ocrResult" class="ocr-result">Waiting for selection...</pre>
+                </div>
+
                 <div class="result-box">
-                    <div class="result-title">📝 Detected Text</div>
-                    <div class="text-area">
-                        <p class="empty-msg" id="textEmpty">OCR results appear here</p>
-                        <pre class="ocr-result" id="ocrResult" style="display:none;"></pre>
+                    <div class="result-title">OCR Engine</div>
+                    <div class="zoom-area">
+                        <p id="engineStatus" class="empty-msg">Tesseract.js ready</p>
                     </div>
                 </div>
-            </div>
-        </div>
+            </aside>
+        </section>
     </main>
 
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <script>
-        const btnStart = document.getElementById('btnStart');
-        const btnStop = document.getElementById('btnStop');
-        const camVideo = document.getElementById('camVideo');
-        const placeholder = document.getElementById('placeholder');
+        const video = document.getElementById('videoPlayer');
         const videoArea = document.getElementById('videoArea');
+        const placeholder = document.getElementById('placeholder');
         const selectBox = document.getElementById('selectBox');
-        const zoomImg = document.getElementById('zoomImg');
-        const ocrResult = document.getElementById('ocrResult');
-        const zoomEmpty = document.getElementById('zoomEmpty');
-        const textEmpty = document.getElementById('textEmpty');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
         const statusDot = document.getElementById('statusDot');
         const statusText = document.getElementById('statusText');
+        const zoomCanvas = document.getElementById('zoomCanvas');
+        const zoomEmpty = document.getElementById('zoomEmpty');
+        const ocrResult = document.getElementById('ocrResult');
+        const engineStatus = document.getElementById('engineStatus');
 
-        let stream = null, camReady = false, drawing = false, sx, sy;
-        let zoomTimer = null, textTimer = null;
+        let stream = null;
+        let isDragging = false;
+        let startX = 0;
+        let startY = 0;
+        let isProcessing = false;
 
-        // Start camera
-        btnStart.addEventListener('click', async () => {
-            try {
-                stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                camVideo.srcObject = stream;
-                camVideo.style.display = 'block';
-                placeholder.style.display = 'none';
-                btnStart.style.display = 'none';
-                btnStop.style.display = 'inline-flex';
-                statusDot.classList.add('on');
-                statusText.textContent = 'Camera Active';
-                camReady = false;
-                camVideo.onloadedmetadata = () => {
-                    camVideo.play();
-                    camReady = true;
-                };
-            } catch (err) {
-                alert('Camera access denied: ' + err.message);
-            }
-        });
+        function setStatus(active, text) {
+            statusDot.classList.toggle('on', active);
+            statusText.textContent = text;
+        }
 
-        // Stop camera
-        btnStop.addEventListener('click', () => {
-            if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
-            camVideo.srcObject = null;
-            camVideo.style.display = 'none';
-            placeholder.style.display = 'flex';
-            btnStop.style.display = 'none';
-            btnStart.style.display = 'inline-flex';
-            statusDot.classList.remove('on');
-            statusText.textContent = 'Camera Off';
-            camReady = false;
-        });
-
-        // ══════════════════════════════════════════════════════════════
-        // MANUAL MODE — Mouse selection
-        // ══════════════════════════════════════════════════════════════
-        videoArea.addEventListener('mousedown', e => {
-            if (!camReady) return;
-            const r = videoArea.getBoundingClientRect();
-            sx = e.clientX - r.left; sy = e.clientY - r.top;
-            drawing = true;
-            selectBox.style.display = 'block';
-            selectBox.style.left = sx + 'px'; selectBox.style.top = sy + 'px';
-            selectBox.style.width = '0'; selectBox.style.height = '0';
-        });
-
-        videoArea.addEventListener('mousemove', e => {
-            if (!drawing) return;
-            const r = videoArea.getBoundingClientRect();
-            const cx = e.clientX - r.left, cy = e.clientY - r.top;
-            selectBox.style.left = Math.min(sx, cx) + 'px';
-            selectBox.style.top = Math.min(sy, cy) + 'px';
-            selectBox.style.width = Math.abs(cx - sx) + 'px';
-            selectBox.style.height = Math.abs(cy - sy) + 'px';
-        });
-
-        videoArea.addEventListener('mouseup', async e => {
-            if (!drawing) return;
-            drawing = false;
-            const r = videoArea.getBoundingClientRect();
-            const ex = e.clientX - r.left, ey = e.clientY - r.top;
-            const x1 = Math.min(sx, ex), y1 = Math.min(sy, ey);
-            const x2 = Math.max(sx, ex), y2 = Math.max(sy, ey);
-            if ((x2 - x1) < 10 || (y2 - y1) < 10) { selectBox.style.display = 'none'; return; }
-
-            setTimeout(() => { selectBox.style.display = 'none'; }, 500);
-
-            const canvas = document.createElement('canvas');
-            const vw = camVideo.videoWidth;
-            const vh = camVideo.videoHeight;
-            if (!vw || !vh) {
-                ocrResult.textContent = 'Camera not ready yet. Try again in a second.';
-                ocrResult.style.display = 'block'; textEmpty.style.display = 'none';
+        function stopTracks() {
+            if (!stream) {
                 return;
             }
-            canvas.width = vw;
-            canvas.height = vh;
-            canvas.getContext('2d').drawImage(camVideo, 0, 0, canvas.width, canvas.height);
-            const scX = canvas.width / videoArea.offsetWidth;
-            const scY = canvas.height / videoArea.offsetHeight;
+            stream.getTracks().forEach((track) => track.stop());
+            stream = null;
+        }
 
-            const cx1 = Math.max(0, Math.round(x1 * scX));
-            const cy1 = Math.max(0, Math.round(y1 * scY));
-            const cx2 = Math.min(canvas.width, Math.round(x2 * scX));
-            const cy2 = Math.min(canvas.height, Math.round(y2 * scY));
-            const cropW = Math.max(1, cx2 - cx1);
-            const cropH = Math.max(1, cy2 - cy1);
+        async function startCamera() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                video.srcObject = stream;
+                video.style.display = 'block';
+                placeholder.style.display = 'none';
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                setStatus(true, 'Camera Live');
+                ocrResult.textContent = 'Draw a region to detect text.';
+            } catch (error) {
+                setStatus(false, 'Camera Permission Denied');
+                ocrResult.textContent = 'Unable to access camera.';
+            }
+        }
+
+        function stopCamera() {
+            stopTracks();
+            video.srcObject = null;
+            video.style.display = 'none';
+            placeholder.style.display = 'flex';
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            setStatus(false, 'Camera Off');
+            selectBox.style.display = 'none';
+            engineStatus.textContent = 'Tesseract.js ready';
+        }
+
+        function clamp(value, min, max) {
+            return Math.max(min, Math.min(max, value));
+        }
+
+        function updateSelectBox(x1, y1, x2, y2) {
+            const left = Math.min(x1, x2);
+            const top = Math.min(y1, y2);
+            const width = Math.abs(x2 - x1);
+            const height = Math.abs(y2 - y1);
+
+            selectBox.style.display = 'block';
+            selectBox.style.left = `${left}px`;
+            selectBox.style.top = `${top}px`;
+            selectBox.style.width = `${width}px`;
+            selectBox.style.height = `${height}px`;
+        }
+
+        async function runOcrFromSelection(x1, y1, x2, y2) {
+            if (isProcessing) {
+                return;
+            }
+
+            const rect = video.getBoundingClientRect();
+            const left = Math.min(x1, x2);
+            const top = Math.min(y1, y2);
+            const width = Math.abs(x2 - x1);
+            const height = Math.abs(y2 - y1);
+
+            if (width < 12 || height < 12) {
+                ocrResult.textContent = 'Selection too small. Draw a bigger region.';
+                return;
+            }
+
+            if (!video.videoWidth || !video.videoHeight) {
+                ocrResult.textContent = 'Video not ready yet.';
+                return;
+            }
+
+            const scaleX = video.videoWidth / rect.width;
+            const scaleY = video.videoHeight / rect.height;
+
+            const sx = Math.floor(left * scaleX);
+            const sy = Math.floor(top * scaleY);
+            const sw = Math.floor(width * scaleX);
+            const sh = Math.floor(height * scaleY);
 
             const cropCanvas = document.createElement('canvas');
-            cropCanvas.width = cropW;
-            cropCanvas.height = cropH;
-            cropCanvas.getContext('2d').drawImage(canvas, cx1, cy1, cropW, cropH, 0, 0, cropW, cropH);
+            cropCanvas.width = sw;
+            cropCanvas.height = sh;
 
-            const zoomW = 500;
-            const zoomScale = zoomW / cropW;
-            const zoomH = Math.max(50, Math.round(cropH * zoomScale));
-            const zoomCanvas = document.createElement('canvas');
-            zoomCanvas.width = zoomW;
-            zoomCanvas.height = zoomH;
-            zoomCanvas.getContext('2d').drawImage(cropCanvas, 0, 0, cropW, cropH, 0, 0, zoomW, zoomH);
+            const cropCtx = cropCanvas.getContext('2d');
+            cropCtx.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh);
 
-            zoomImg.src = zoomCanvas.toDataURL('image/jpeg', 0.9);
-            zoomImg.style.display = 'block';
+            const zoomCtx = zoomCanvas.getContext('2d');
+            zoomCanvas.width = sw;
+            zoomCanvas.height = sh;
+            zoomCtx.drawImage(cropCanvas, 0, 0);
+            zoomCanvas.style.display = 'block';
             zoomEmpty.style.display = 'none';
-            if (zoomTimer) clearTimeout(zoomTimer);
-            zoomTimer = setTimeout(() => {
-                zoomImg.style.display = 'none';
-                zoomEmpty.style.display = 'block';
-            }, 5000);
 
-            ocrResult.textContent = 'Detecting...';
-            ocrResult.style.display = 'block'; textEmpty.style.display = 'none';
+            isProcessing = true;
+            ocrResult.textContent = 'Detecting text...';
+            engineStatus.textContent = 'Running OCR...';
 
-            canvas.toBlob(async blob => {
-                const fd = new FormData();
-                fd.append('frame', blob, 'frame.jpg');
-                fd.append('x1', cx1);
-                fd.append('y1', cy1);
-                fd.append('x2', cx2);
-                fd.append('y2', cy2);
-                try {
-                    const res = await fetch('/ocr_region', { method: 'POST', body: fd });
-                    if (!res.ok) throw new Error('Server error');
-                    const data = await res.json();
-                    if (data.error) throw new Error(data.error);
-
-                    if (data.zoomed_image) {
-                        zoomImg.src = data.zoomed_image;
-                        zoomImg.style.display = 'block'; zoomEmpty.style.display = 'none';
-                        if (zoomTimer) clearTimeout(zoomTimer);
-                        zoomTimer = setTimeout(() => {
-                            zoomImg.style.display = 'none';
-                            zoomEmpty.style.display = 'block';
-                        }, 5000);
+            try {
+                const result = await Tesseract.recognize(cropCanvas, 'eng', {
+                    logger: (message) => {
+                        if (message.status === 'recognizing text' && typeof message.progress === 'number') {
+                            const percent = Math.round(message.progress * 100);
+                            engineStatus.textContent = `OCR progress: ${percent}%`;
+                        }
                     }
+                });
 
-                    ocrResult.textContent = data.text || 'No text detected';
-                    if (textTimer) clearTimeout(textTimer);
-                    textTimer = setTimeout(() => {
-                        ocrResult.style.display = 'none';
-                        textEmpty.style.display = 'block';
-                    }, 10000);
-                } catch (err) {
-                    ocrResult.textContent = 'Error: ' + err.message;
-                    if (textTimer) clearTimeout(textTimer);
-                    textTimer = setTimeout(() => {
-                        ocrResult.style.display = 'none';
-                        textEmpty.style.display = 'block';
-                    }, 10000);
-                }
-            }, 'image/jpeg', 0.9);
+                const cleanText = (result.data.text || '').replace(/\s+/g, ' ').trim();
+                ocrResult.textContent = cleanText || 'No text detected';
+                engineStatus.textContent = 'Tesseract.js ready';
+            } catch (error) {
+                ocrResult.textContent = 'OCR failed on selected region.';
+                engineStatus.textContent = 'OCR error';
+            } finally {
+                isProcessing = false;
+            }
+        }
+
+        videoArea.addEventListener('mousedown', (event) => {
+            if (!stream || video.style.display === 'none') {
+                return;
+            }
+
+            const rect = video.getBoundingClientRect();
+            startX = clamp(event.clientX - rect.left, 0, rect.width);
+            startY = clamp(event.clientY - rect.top, 0, rect.height);
+            isDragging = true;
+            updateSelectBox(startX, startY, startX, startY);
         });
+
+        videoArea.addEventListener('mousemove', (event) => {
+            if (!isDragging) {
+                return;
+            }
+
+            const rect = video.getBoundingClientRect();
+            const currentX = clamp(event.clientX - rect.left, 0, rect.width);
+            const currentY = clamp(event.clientY - rect.top, 0, rect.height);
+            updateSelectBox(startX, startY, currentX, currentY);
+        });
+
+        window.addEventListener('mouseup', async (event) => {
+            if (!isDragging) {
+                return;
+            }
+
+            const rect = video.getBoundingClientRect();
+            const endX = clamp(event.clientX - rect.left, 0, rect.width);
+            const endY = clamp(event.clientY - rect.top, 0, rect.height);
+            isDragging = false;
+            await runOcrFromSelection(startX, startY, endX, endY);
+        });
+
+        startBtn.addEventListener('click', startCamera);
+        stopBtn.addEventListener('click', stopCamera);
+
+        window.addEventListener('beforeunload', stopTracks);
     </script>
 </body>
 

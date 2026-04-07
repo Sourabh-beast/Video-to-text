@@ -29,36 +29,35 @@
         </h1>
 
         <p class="home-desc">
-            Detect and read text from traffic videos and surveillance footage —
-            vehicle license plates, road signboards, and CCTV text — in real-time
-            using PaddleOCR's deep learning detection and recognition.
+            Detect and read text from traffic videos and surveillance footage
+            using browser-side OCR. Draw a region in webcam or uploaded video,
+            and text extraction runs directly on your device.
         </p>
 
         <div class="home-tech">
             <span class="tech-pill">Python</span>
-            <span class="tech-pill">OpenCV</span>
-            <span class="tech-pill">PaddleOCR</span>
-            <span class="tech-pill">NumPy</span>
             <span class="tech-pill">Flask</span>
+            <span class="tech-pill">Tesseract.js</span>
+            <span class="tech-pill">JavaScript</span>
         </div>
 
         <div class="home-cards">
             <a href="/webcam" class="home-card">
-                <div class="home-card-icon">📷</div>
+                <div class="home-card-icon">CAM</div>
                 <h3>Live Webcam</h3>
-                <p>Use your camera for real-time text detection — auto-detect or manual selection</p>
+                <p>Use camera and draw a region to run manual OCR directly in browser</p>
                 <div class="home-card-btn">Open Webcam →</div>
             </a>
 
             <a href="/upload" class="home-card">
-                <div class="home-card-icon">📁</div>
+                <div class="home-card-icon">VID</div>
                 <h3>Upload Video</h3>
-                <p>Upload traffic or surveillance footage to automatically detect and read text</p>
+                <p>Load local video, pause at a frame, and extract text from selected region</p>
                 <div class="home-card-btn">Upload Video →</div>
             </a>
         </div>
 
-        <p class="home-footer">Built with Python, OpenCV & PaddleOCR</p>
+        <p class="home-footer">Built with Python Flask and browser-side Tesseract.js OCR</p>
     </main>
 </body>
 
