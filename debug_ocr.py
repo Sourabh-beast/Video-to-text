@@ -33,12 +33,12 @@ for i in range(0, min(total, 300), 30):
         use_doc_orientation_classify=False,
         use_doc_unwarping=False,
         use_textline_orientation=False,
-        text_det_limit_side_len=1280,
-        text_det_limit_type="max",
-        text_det_thresh=0.20,
-        text_det_box_thresh=0.30,
-        text_det_unclip_ratio=1.6,
-        text_rec_score_thresh=0.20,
+        text_det_limit_side_len=1920,
+        text_det_limit_type="min",
+        text_det_thresh=0.10,
+        text_det_box_thresh=0.20,
+        text_det_unclip_ratio=1.8,
+        text_rec_score_thresh=0.10,
     )
     dt = time.time() - t
 
