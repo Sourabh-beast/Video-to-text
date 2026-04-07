@@ -3,7 +3,11 @@ import os
 from flask import Flask, render_template  # type: ignore
 
 
-app = Flask(__name__)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+TEMPLATE_DIR = os.path.join(BASE_DIR, "templates")
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+
+app = Flask(__name__, template_folder=TEMPLATE_DIR, static_folder=STATIC_DIR)
 
 
 @app.route("/")
@@ -19,6 +23,11 @@ def webcam_page():
 @app.route("/upload")
 def upload_page():
     return render_template("upload.html")
+
+
+@app.route("/health")
+def health():
+    return {"ok": True}, 200
 
 
 if __name__ == "__main__":
